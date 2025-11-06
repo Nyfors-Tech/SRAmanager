@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SRA – Rastimiehitys (yksi tiedosto)</title>
+  <style>
+    :root{--border:#e5e7eb;--muted:#6b7280;--mutedbg:#f3f4f6;--danger:#b91c1c}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial}
+    header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--border);padding:10px 16px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+    h1{font-size:18px;margin:0}
+    .wrap{max-width:1200px;margin:0 auto;padding:12px}
+    .grid{display:grid;gap:16px}
+    .two{grid-template-columns:1fr 2fr}
+    .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px}
+    .card h2{margin:0 0 8px;font-size:16px}
+    .row{display:grid;grid-template-columns:2fr .6fr 2.4fr .8fr;gap:8px;align-items:center;border-top:1px solid var(--border);padding:8px 0}
+    .row2{display:flex;gap:10px;align-items:center;padding:4px 0 12px 0;border-bottom:1px solid var(--border)}
+    .head{background:var(--mutedbg);border-radius:8px;padding:8px;display:grid;grid-template-columns:2fr .6fr 2.4fr .8fr;gap:8px;font-weight:600}
+    input,select,textarea{width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:#fff}
+    textarea{min-height:34px}
+    .btn{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:#f9fafb;cursor:pointer}
+    .btn-ghost{padding:8px 12px;border:none;background:transparent;text-decoration:underline;cursor:pointer}
+    .btn-danger{padding:8px 10px;border:1px solid #fecaca;background:#fee2e2;color:#991b1b;border-radius:8px;cursor:pointer}
+    .muted{color:var(--muted);font-size:12px}
+    .tabrow{display:flex;flex-wrap:wrap;gap:8px}
+    .tab{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer}
+    .tab.active{background:var(--mutedbg)}
+    .stagegrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .stage{border:1px solid var(--border);border-radius:12px;padding:10px;background:#fff;break-inside:avoid}
+    .stage h3{margin:0 0 8px;font-size:15px}
+    .role{display:grid;grid-template-columns:1fr 2fr;gap:8px;align-items:center;margin:8px 0}
+    .opt-taken{color:var(--danger)}
+    .selinfo{font-size:12px;color:var(--muted);margin-top:4px}
+    #status{font-size:12px;color:#059669}
+    .chip{display:inline-block;border:1px solid var(--border);border-radius:999px;padding:2px 8px;font-size:12px}
+    @media print{header,.noprint{display:none!important}.stage{break-inside:avoid}.row2{display:none}}
+  </style>
+</head>
+<body>
+  <header class="noprint">
+    <h1>SRA – Rastimiehitys ja toimitsijahallinta</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="btnPrint">Tulosta / PDF</button>
+      <button class="btn" id="btnExportJSON">Vie JSON</button>
+      <button class="btn" id="btnImportJSON">Tuo JSON</button>
+      <input type="file" id="fileJSON" accept="application/json" style="display:none" />
+      <button class="btn" id="btnNew">Uusi kilpailu</button>
+      <span id="status"></span>
+    </div>
+  </header>
+
+  <div class="wrap grid two">
+    <section class="card noprint">
+      <h2>Toimitsijat</h2>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn" id="btnAddStaff">Lisää toimitsija</button>
+        <button class="btn" id="btnImportCSV">Tuo CSV</button>
+        <input type="file" id="fileCSV" accept=".csv,text/csv" style="display:none" />
+        <button class="btn-ghost" id="btnTemplateCSV">Lataa CSV-pohja</button>
+      </div>
+      <div class="head"><div>Nimi</div><div>RO</div><div>Muistiinpanot</div><div style="text-align:right">Poista</div></div>
+      <!-- UUSI: Google Sheets CSV -osoitteen tuonti -->
+      <div class="row2 noprint" style="border:none; padding-top:0">
+        <div class="muted" style="min-width:120px">CSV-URL</div>
+        <input id="txtCsvUrl" placeholder="https://docs.google.com/spreadsheets/.../pub?output=csv" />
+        <button class="btn" id="btnFetchCsvUrl" style="white-space:nowrap">Tuo URL</button>
+      </div>
+
+      <div id="staffList"></div>
+    </section>
+
+    <section class="card">
+      <h2>Rastimiehitys</h2>
+      <div class="noprint" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px">
+        <div><label class="muted">Päivien määrä</label><input type="number" min="1" id="inpDays"></div>
+        <div><label class="muted">Rastien määrä</label><input type="number" min="1" id="inpStages"></div>
+        <div><label class="muted">Lisätoimitsijapaikkoja / rasti</label><input type="number" min="0" max="20" id="inpExtraSlots"></div>
+      </div>
+      <div class="muted noprint" style="margin-top:-6px">Alasvetoon listataan vain sen päivän saatavilla olevat toimitsijat; varatut näkyvät punaisena.</div>
+      <div class="tabrow noprint" id="dayTabs" style="margin-top:8px"></div>
+      <div id="dayViews" style="margin-top:12px"></div>
+    </section>
+  </div>
+
+  <footer class="wrap noprint" style="font-size:12px;color:#6b7280">Vinkki: Vie JSON ja Tuo JSON. Tulosta → PDF.</footer>
+
+  <script>
+(function(){
+    try{
+        // ===== Data / roles (ilman regexeja) =====
+        function defaultExtraSlots(){ return 10; }
+        function isToimitsijaKey(key){ return key.indexOf('toimitsija_')===0; }
+        function getRoleNumberFromKey(key){ if(!isToimitsijaKey(key)) return null; var numStr=key.slice('toimitsija_'.length); var n=parseInt(numStr,10); return isNaN(n)?null:n; }
+        function getRoleKeys(){ var arr=['rastipaallikko','rasti2']; var n=(comp&&typeof comp.extraSlots==='number')?comp.extraSlots:defaultExtraSlots(); for(var i=1;i<=n;i++){ arr.push('toimitsija_'+i); } return arr; }
+        function getRoleLabel(key){ if(key==='rastipaallikko') return 'Rastipäällikkö'; if(key==='rasti2') return 'Rasti 2.'; var n=getRoleNumberFromKey(key); return n?('Toimitsija '+n):key; }
+        function uid(){ return Math.random().toString(36).slice(2,9); }
+        function newEmptyCompetition(days,stages,extraSlots){ if(days==null)days=1; if(stages==null)stages=6; if(extraSlots==null)extraSlots=defaultExtraSlots(); var assignments={}; var tmpComp={days:days,stages:stages,extraSlots:extraSlots,assignments:assignments}; var keys=(function(){var a=['rastipaallikko','rasti2']; for(var i=1;i<=extraSlots;i++){ a.push('toimitsija_'+i); } return a;})(); for(var d=0; d<days; d++){ assignments[d]={}; for(var s=0; s<stages; s++){ var st={}; for(var k=0;k<keys.length;k++){ st[keys[k]]=null; } assignments[d][s]=st; } } return tmpComp; }
+
+        var staff=[]; // {id,name,isRO,notes,avail:[dayIdx...]}
+        var comp=newEmptyCompetition(1,6,defaultExtraSlots());
+        var activeDay=0;
+
+        // ===== Storage =====
+        var LS={staff:'sra_staff_v7',comp:'sra_comp_v7'};
+        function load(){ try{var s=localStorage.getItem(LS.staff); if(s) staff=JSON.parse(s);}catch(e){}
+                                        try{var c=localStorage.getItem(LS.comp); if(c) comp=JSON.parse(c);}catch(e){}
+                                        if(typeof comp.extraSlots!=='number') comp.extraSlots=defaultExtraSlots();
+                                        for(var i=0;i<staff.length;i++){ if(!Array.isArray(staff[i].avail)) staff[i].avail=[]; }
+        }
+        function save(){ try{localStorage.setItem(LS.staff,JSON.stringify(staff));}catch(e){}
+                                        try{localStorage.setItem(LS.comp,JSON.stringify(comp));}catch(e){} }
+
+        // ===== Helpers =====
+        function ensureAvailLength(){ for(var i=0;i<staff.length;i++){ if(!Array.isArray(staff[i].avail)) staff[i].avail=[]; for(var d=0; d<comp.days; d++){ if(staff[i].avail.indexOf(d)===-1) staff[i].avail.push(d); } staff[i].avail = staff[i].avail.filter(function(x){ return x>=0 && x<comp.days; }); } }
+        function parseCSV(text){ var str=String(text||''); var clean=str.split('').join(''); var lines=clean.split(''); var out=[]; if(!lines.length) return out; var headerLine=lines[0]; if(!headerLine) return out; var headers=headerLine.split(','); for(var li=1; li<lines.length; li++){ var line=lines[li]; if(!line) continue; var cols=line.split(','); var obj={}; for(var h=0; h<headers.length; h++){ var key=headers[h]?headers[h].trim():('col'+h); var val=(cols[h]||'').trim(); obj[key]=val; } out.push(obj); } return out; }
+        function download(name,blob){ var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url); }
+        function isAssigned(id,day){ if(!id)return false; var dayObj=comp.assignments[day]||{}; var keys=getRoleKeys(); for(var s in dayObj){ if(!dayObj.hasOwnProperty(s)) continue; var st=dayObj[s]; for(var r=0;r<keys.length;r++){ if(st[keys[r]]===id) return true; } } return false; }
+        function isAvailableOnDay(p,day){ return Array.isArray(p.avail) ? p.avail.indexOf(day)!==-1 : true; }
+
+        // Forms-monivalinnan purku (esim. "1, 2, 4" tai "La1, Su2")
+        function parseAvailableDaysFromForms(value){ var avail=[]; if(value==null) return avail; var s=String(value); s=s.split(';').join(','); s=s.split('	').join(','); s=s.split(' ').join(','); var parts=s.split(',').filter(function(x){return x.trim().length>0}); for(var i=0;i<parts.length;i++){ var p=parts[i].trim(); var digits=''; for(var k=0;k<p.length;k++){ var ch=p.charAt(k); if(ch>='0'&&ch<='9'){ digits+=ch; } } if(digits){ var n=parseInt(digits,10); if(!isNaN(n)){ var idx=n-1; if(idx>=0 && (comp && typeof comp.days==='number'? idx<comp.days : true)) if(avail.indexOf(idx)===-1) avail.push(idx); } } } return avail; }
+        // Legacy "1;2" ym. muoto
+        function parseAvailableDaysLegacy(daysStr){ var avail=[]; if(!daysStr) return avail; var tmp=String(daysStr); tmp=tmp.split(';').join(' '); tmp=tmp.split(',').join(' '); tmp=tmp.split('	').join(' '); while(tmp.indexOf('  ')!==-1){ tmp=tmp.split('  ').join(' '); } tmp=tmp.trim(); if(!tmp) return avail; var parts=tmp.split(' '); for(var i=0;i<parts.length;i++){ var num=parseInt(parts[i],10); if(!isNaN(num)){ var idx=num-1; if(idx>=0 && (comp && typeof comp.days==='number'? idx<comp.days : true)) if(avail.indexOf(idx)===-1) avail.push(idx); } } return avail; }
+
+        // ===== DOM refs =====
+        var el={
+            status:document.getElementById('status'),
+            staffList:document.getElementById('staffList'),
+            inpDays:document.getElementById('inpDays'),
+            inpStages:document.getElementById('inpStages'),
+            inpExtraSlots:document.getElementById('inpExtraSlots'),
+            dayTabs:document.getElementById('dayTabs'),
+            dayViews:document.getElementById('dayViews'),
+            btnAddStaff:document.getElementById('btnAddStaff'),
+            btnImportCSV:document.getElementById('btnImportCSV'),
+            fileCSV:document.getElementById('fileCSV'),
+            btnTemplateCSV:document.getElementById('btnTemplateCSV'),
+            btnPrint:document.getElementById('btnPrint'),
+            btnExportJSON:document.getElementById('btnExportJSON'),
+            btnImportJSON:document.getElementById('btnImportJSON'),
+            fileJSON:document.getElementById('fileJSON'),
+            btnNew:document.getElementById('btnNew'),
+            txtCsvUrl:document.getElementById('txtCsvUrl'),
+            btnFetchCsvUrl:document.getElementById('btnFetchCsvUrl')
+        };
+
+        // ===== Actions =====
+        el.btnAddStaff.onclick=function(){ staff.push({id:uid(),name:'',isRO:false,notes:'',avail:Array.from({length:comp.days},function(_,i){return i;})}); save(); renderStaff(); renderViews(); };
+        el.btnImportCSV.onclick=function(){ el.fileCSV.click(); };
+        el.btnTemplateCSV.onclick=function(){ var rows=[["Name","RO(yes/no)","Notes","AvailableDays"],["Mallikas Malli","yes","Vapaaehtoistoimitsija","1;2"]]; var csv=rows.map(function(r){return r.join(',')}).join(''); download('toimitsijat_template.csv', new Blob([csv],{type:'text/csv;charset=utf-8;'})); };
+        el.fileCSV.onchange=function(e){ var f=e.target.files&&e.target.files[0]; if(!f) return; var r=new FileReader(); r.onload=function(){ var rows=parseCSV(String(r.result||'')); mergeCsvRowsIntoStaff(rows); save(); renderStaff(); renderViews(); e.target.value=''; }; r.readAsText(f); };
+        el.btnPrint.onclick=function(){ window.print(); };
+        el.btnExportJSON.onclick=function(){ var d=new Date(); var fn='SRA-kilpailu-'+d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)+'.json'; var data=JSON.stringify({staff:staff,competition:comp},null,2); download(fn, new Blob([data],{type:'application/json'})); };
+        el.btnImportJSON.onclick=function(){ el.fileJSON.click(); };
+      el.fileJSON.onchange=function(e){ var f=e.target.files&&e.target.files[0]; if(!f) return; var r=new FileReader(); r.onload=function(){ try{ var data=JSON.parse(String(r.result)); if(Object.prototype.toString.call(data.staff)==='[object Array]' && data.competition){ staff=data.staff; comp=data.competition; if(typeof comp.extraSlots!=='number') comp.extraSlots=defaultExtraSlots(); activeDay=0; ensureAvailLength(); save(); renderAll(); } else { alert('Tiedosto ei ole oikeassa muodossa.'); } } catch(err){ alert('Virhe luettaessa JSON-tiedostoa.'); } e.target.value=''; }; r.readAsText(f); };
+      el.btnNew.onclick=function(){ if(!confirm('Aloitetaanko uusi kilpailu? Tämä tyhjentää nykyiset tiedot.')) return; staff=[]; comp=newEmptyCompetition(1,6,defaultExtraSlots()); activeDay=0; save(); renderAll(); };
+
+      // ===== CSV-URL tuonti (Google Sheets "Publish to web" → CSV) =====
+      el.btnFetchCsvUrl.onclick=function(){
+        try {
+          var url=(el.txtCsvUrl && el.txtCsvUrl.value || '').trim();
+          if(!url){ alert('Anna CSV-osoite (Google Sheets → Publish to web → CSV).'); return; }
+          el.status.textContent='Haetaan CSV-URL:sta…';
+          fetch(url, {cache:'no-store'})
+            .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.text(); })
+            .then(function(text){ var rows=parseCSV(String(text||'')); mergeCsvRowsIntoStaff(rows); save(); renderStaff(); renderViews(); el.status.textContent='CSV tuotu URL:sta ✔'; })
+            .catch(function(err){ console.error(err); el.status.textContent='Virhe URL-tuonnissa'; alert('CSV-URL tuonti epäonnistui: '+err.message); });
+        } catch(e) {
+          console.error(e);
+          el.status.textContent='Virhe URL-tuonnissa';
+          alert('CSV-URL tuonti epäonnistui: '+e.message);
+        }
+      };
+
+      // ===== Forms/Sheets -yhteensopiva yhdistys =====
+      function mergeCsvRowsIntoStaff(rows){
+        var imported = [];
+        for(var i=0;i<rows.length;i++){
+          var x=rows[i]||{};
+          // Otsikot Google Sheetissä (Forms):
+          var nameVal = x['Nimi tunnistettavassa muodossa'] || x['Name'] || x['Nimi'] || '';
+          var expVal  = x['Toimitsijakokemus'] || '';
+          var daysVal = x['Pystyn toimitsemaan seuraavina päivinä (La1, Su2 jne)'] || x['AvailableDays'] || '';
+
+          var name = String(nameVal).trim();
+          if(!name) continue;
+
+          // RO tuomioista
+          var expLower = String(expVal).trim().toLowerCase();
+          var isRO = expLower.indexOf('tuomari') === 0; // "Tuomari" => RO
+
+          // Päivät: ensin Forms-monivalinta, sitten legacy varalta
+          var avail = parseAvailableDaysFromForms(daysVal);
+          if(avail.length===0) avail = parseAvailableDaysLegacy(daysVal);
+          if(avail.length===0) avail = Array.from({length:comp.days}, function(_,i){return i;});
+
+          // Muistiinpanot: jos ei tuomari, lisää kokemustaso
+          var noteParts=[];
+          if(expVal && !isRO){ noteParts.push(String(expVal).trim()); }
+
+          // Lisää muut sarakkeet huomioihin
+          var knownKeys = {
+            'Nimi tunnistettavassa muodossa':1, 'Name':1, 'Nimi':1,
+            'Toimitsijakokemus':1,
+            'Pystyn toimitsemaan seuraavina päivinä (La1, Su2 jne)':1,
+            'AvailableDays':1,
+            'Timestamp':1, 'Aikaleima':1, 'Email Address':1, 'Sähköpostiosoite':1, 'Score':1
+          };
+          for(var key in x){ if(!x.hasOwnProperty(key)) continue; if(knownKeys[key]) continue; var val = x[key]; if(val==null) continue; var valStr = String(val).trim(); if(!valStr) continue; noteParts.push(key+': '+valStr); }
+
+          var o={ id:uid(), name:name, isRO:isRO, notes:noteParts.join(' | '), avail:avail };
+          imported.push(o);
+        }
+        var map={}; for(var m=0;m<staff.length;m++) map[staff[m].name.toLowerCase()]=staff[m];
+        for(var j=0;j<imported.length;j++){
+          var n=imported[j].name.toLowerCase();
+          if(map[n]){ map[n].isRO = imported[j].isRO || map[n].isRO; if(imported[j].notes){ var oldNotes=String(map[n].notes||''); var addNotes=String(imported[j].notes||''); if(addNotes && oldNotes.indexOf(addNotes)===-1){ map[n].notes = oldNotes ? (oldNotes+' | '+addNotes) : addNotes; } } map[n].avail = imported[j].avail; }
+          else { staff.push(imported[j]); map[n]=imported[j]; }
+        }
+      }
+
+      function renderStaff(){ var list=el.staffList; list.innerHTML=''; if(!staff.length){ var d=document.createElement('div'); d.style.padding='12px'; d.className='muted'; d.textContent='Ei toimitsijoita vielä. Lisää käsin tai tuo CSV:llä.'; list.appendChild(d); return; } for(var i=0;i<staff.length;i++){ (function(p){ var row=document.createElement('div'); row.className='row'; var inp=document.createElement('input'); inp.type='text'; inp.value=p.name; inp.placeholder='Nimi'; inp.oninput=function(){ p.name=inp.value; save(); }; inp.onblur=function(){ renderViews(); };
+          var lbl=document.createElement('label'); lbl.style.display='flex'; lbl.style.alignItems='center'; lbl.style.gap='6px'; var chk=document.createElement('input'); chk.type='checkbox'; chk.checked=p.isRO; chk.onchange=function(){ p.isRO=chk.checked; save(); renderViews(); }; lbl.appendChild(chk); lbl.appendChild(document.createTextNode('RO'));
+          var ta=document.createElement('textarea'); ta.value=p.notes; ta.placeholder='Muistiinpanot'; ta.oninput=function(){ p.notes=ta.value; save(); };
+          var del=document.createElement('button'); del.className='btn-danger'; del.textContent='Poista'; del.onclick=function(){ removeStaff(p.id); };
+          row.appendChild(inp); row.appendChild(lbl); row.appendChild(ta); row.appendChild(del); list.appendChild(row);
+          ensureAvailLength(); var row2=document.createElement('div'); row2.className='row2'; var cap=document.createElement('div'); cap.className='muted'; cap.textContent='Saatavilla:'; row2.appendChild(cap); for(var d=0; d<comp.days; d++){ (function(dayIdx){ var lab=document.createElement('label'); lab.className='chip'; lab.style.cursor='pointer'; var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=p.avail.indexOf(dayIdx)!==-1; cb.style.marginRight='6px'; cb.onchange=function(){ var idx=p.avail.indexOf(dayIdx); if(cb.checked){ if(idx===-1) p.avail.push(dayIdx); } else { if(idx!==-1) p.avail.splice(idx,1); clearAssignmentsIfUnavailable(p.id, dayIdx); } save(); renderViews(); }; lab.appendChild(cb); lab.appendChild(document.createTextNode('Päivä '+(dayIdx+1))); row2.appendChild(lab); })(d); } list.appendChild(row2); })(staff[i]); } }
+
+      function clearAssignmentsIfUnavailable(staffId, dayIdx){ for(var s=0;s<comp.stages;s++){ var st=comp.assignments[dayIdx]&&comp.assignments[dayIdx][s]; if(!st) continue; var keys=getRoleKeys(); for(var r=0;r<keys.length;r++){ var k=keys[r]; if(st[k]===staffId) st[k]=null; } } }
+
+      function removeStaff(id){ for(var d=0; d<comp.days; d++){ for(var s=0; s<comp.stages; s++){
+          (function(stageIdx){
+            var box=document.createElement('div'); box.className='stage';
+            var h=document.createElement('h3'); h.textContent='Rasti '+(stageIdx+1); box.appendChild(h);
+
+            var stage=(comp.assignments[activeDay]&&comp.assignments[activeDay][stageIdx])?comp.assignments[activeDay][stageIdx]:null;
+            if(!stage){ stage={}; var keysInit=getRoleKeys(); for(var r0=0;r0<keysInit.length;r0++){ stage[keysInit[r0]]=null; } if(!comp.assignments[activeDay]) comp.assignments[activeDay]={}; comp.assignments[activeDay][stageIdx]=stage; }
+
+            var keys=getRoleKeys();
+            for(var r2=0;r2<keys.length;r2++){
+              (function(roleKey){
+                var currentId = stage[roleKey];
+                var row=document.createElement('div'); row.className='role';
+                var lab=document.createElement('div'); lab.textContent=getRoleLabel(roleKey);
+                var slot=document.createElement('div');
+                var sel=staffSelect(activeDay,currentId,function(val){
+                  // Tässä käytetään nimenomaan aktiivisen päivän ja tämän stageIdx:n viitettä
+                  comp.assignments[activeDay][stageIdx][roleKey]=val;
+                  save(); renderViews();
+                });
+                slot.appendChild(sel);
+                var stf=null; for(var sj=0; sj<staff.length; sj++){ if(staff[sj].id===comp.assignments[activeDay][stageIdx][roleKey]){ stf=staff[sj]; break; } }
+                if(stf){ var info=document.createElement('div'); info.className='selinfo'; var txt=stf.name; if(stf.isRO) txt+=' (RO)'; if(stf.notes){ txt+=' — '+stf.notes; } info.textContent=txt; slot.appendChild(info); }
+                row.appendChild(lab); row.appendChild(slot); box.appendChild(row);
+              })(keys[r2]);
+            }
+            grid.appendChild(box);
+          })(s);
+        }
+        el.dayViews.appendChild(grid); }
+
+      function setDays(n){ var prev=comp.days; if(n===prev) return; if(n>prev){ for(var d=prev; d<n; d++){ comp.assignments[d]={}; for(var s=0; s<comp.stages; s++){ var st={}; var keys=getRoleKeys(); for(var r=0;r<keys.length;r++){ st[keys[r]]=null; } comp.assignments[d][s]=st; } } } else { for(var d2=n; d2<prev; d2++){ delete comp.assignments[d2]; } if(activeDay>=n) activeDay=n-1; } comp.days=n; ensureAvailLength(); save(); renderTabs(); renderViews(); }
+
+      function setStages(n){ var prev=comp.stages; if(n===prev) return; for(var d=0; d<comp.days; d++){ if(n>prev){ for(var s=prev; s<n; s++){ var st={}; var keys=getRoleKeys(); for(var r=0;r<keys.length;r++){ st[keys[r]]=null; } if(!comp.assignments[d]) comp.assignments[d]={}; comp.assignments[d][s]=st; } } else { for(var s2=n; s2<prev; s2++){ if(comp.assignments[d]) delete comp.assignments[d][s2]; } } } comp.stages=n; save(); renderViews(); }
+
+      function setExtraSlots(n){ var prev=comp.extraSlots; if(n===prev) return; var oldKeys=(function(){ var a=['rastipaallikko','rasti2']; for(var i=1;i<=prev;i++){ a.push('toimitsija_'+i); } return a; })(); var newKeys=(function(){ var a=['rastipaallikko','rasti2']; for(var i=1;i<=n;i++){ a.push('toimitsija_'+i); } return a; })(); for(var d=0; d<comp.days; d++){ for(var s=0; s<comp.stages; s++){ var st=comp.assignments[d]&&comp.assignments[d][s]; if(!st){ st={}; comp.assignments[d][s]=st; } for(var i=0;i<newKeys.length;i++){ var k=newKeys[i]; if(!(k in st)) st[k]=null; } for(var i2=0;i2<oldKeys.length;i2++){ var ok=oldKeys[i2]; var keep=false; for(var j=0;j<newKeys.length;j++){ if(newKeys[j]===ok){ keep=true; break; } } if(!keep){ delete st[ok]; } } } } comp.extraSlots=n; save(); renderViews(); }
+
+      function renderAll(){ renderStaff(); renderTabs(); renderViews(); }
+
+      // Init
+      load(); ensureAvailLength(); renderAll(); el.status.textContent='Skripti ladattu ✔';
+    }catch(e){ alert('Skriptissä tapahtui virhe: '+e.message); console.error(e); }
+  })();
+  </script>
+</body>
+</html>
